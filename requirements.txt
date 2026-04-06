@@ -5,3 +5,6 @@ ddgs
 filelock
 pytest
 pytest-mock
+fastapi
+uvicorn
+sse-starlette

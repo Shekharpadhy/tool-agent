@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tool Agent</title>
+  <style>
+    :root {
+      --primary:      #6366f1;
+      --primary-dark: #4f46e5;
+      --bg:           #f1f5f9;
+      --card:         #ffffff;
+      --text:         #1e293b;
+      --muted:        #64748b;
+      --border:       #e2e8f0;
+      --term-bg:      #0f172a;
+      --term-text:    #e2e8f0;
+      --success:      #22c55e;
+      --warning:      #f59e0b;
+      --error:        #ef4444;
+      --radius:       14px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 16px 64px;
+    }
+
+    /* ── layout ── */
+    .wrap { max-width: 780px; margin: 0 auto; }
+
+    /* ── header ── */
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header .logo {
+      font-size: 2.4rem;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ── card ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px var(--border);
+    }
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── textarea ── */
+    textarea {
+      width: 100%;
+      min-height: 84px;
+      padding: 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      color: var(--text);
+      resize: vertical;
+      transition: border-color .2s;
+      line-height: 1.5;
+    }
+    textarea:focus { outline: none; border-color: var(--primary); }
+    textarea::placeholder { color: #94a3b8; }
+
+    /* ── controls row ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    /* ── primary button ── */
+    .btn-run {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 28px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: .95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 2px 8px rgba(99,102,241,.35);
+    }
+    .btn-run:hover:not(:disabled)  { background: var(--primary-dark); box-shadow: 0 4px 14px rgba(99,102,241,.45); }
+    .btn-run:active:not(:disabled) { transform: scale(.97); }
+    .btn-run:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+    /* ── checkbox ── */
+    .chk-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .88rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .chk-label input { accent-color: var(--primary); width: 15px; height: 15px; }
+
+    /* ── status badge ── */
+    .status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .82rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      flex-shrink: 0;
+    }
+    .dot.running { background: var(--primary); animation: blink 1s ease-in-out infinite; }
+    .dot.done    { background: var(--success); }
+    .dot.error   { background: var(--error); }
+
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+    /* ── spinner ── */
+    .spinner {
+      width: 15px; height: 15px;
+      border: 2.5px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .55s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── terminal ── */
+    .term {
+      background: var(--term-bg);
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+      font-size: .78rem;
+      line-height: 1.65;
+      color: var(--term-text);
+      min-height: 56px;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    .term:empty::before { content: "Logs will appear here…"; color: #475569; }
+
+    .log { word-break: break-all; }
+    .log.INFO    { color: #94a3b8; }
+    .log.WARNING { color: var(--warning); }
+    .log.ERROR   { color: var(--error); }
+
+    /* term scrollbar */
+    .term::-webkit-scrollbar { width: 5px; }
+    .term::-webkit-scrollbar-track { background: transparent; }
+    .term::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* ── results text ── */
+    .result-body {
+      white-space: pre-wrap;
+      font-family: "SF Mono", "Cascadia Code", monospace;
+      font-size: .82rem;
+      line-height: 1.7;
+      color: var(--text);
+      max-height: 420px;
+      overflow-y: auto;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .result-body::-webkit-scrollbar { width: 5px; }
+    .result-body::-webkit-scrollbar-track { background: transparent; }
+    .result-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    /* ── files list ── */
+    .files { margin-top: 20px; }
+    .files-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 12px; }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      margin-bottom: 8px;
+    }
+    .file-info { display: flex; align-items: center; gap: 10px; }
+    .file-icon { font-size: 1.2rem; }
+    .file-name { font-size: .9rem; font-weight: 600; }
+    .file-size { font-size: .75rem; color: var(--muted); }
+
+    .btn-dl {
+      padding: 7px 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+      flex-shrink: 0;
+    }
+    .btn-dl:hover { background: var(--primary-dark); }
+
+    /* ── utility ── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">🤖</div>
+    <h1>Tool Agent</h1>
+    <p>An autonomous AI agent that researches, reasons, and saves results for you</p>
+  </header>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-label">Your Goal</div>
+    <textarea id="goal"
+      placeholder="e.g. Research the best Python web frameworks and save a comparison report&#10;(Press Enter to run, Shift+Enter for a new line)"></textarea>
+    <div class="controls">
+      <button class="btn-run" id="runBtn" onclick="runAgent()">
+        <span id="btnText">Run Agent</span>
+        <div id="spinner" class="spinner hidden"></div>
+      </button>
+      <label class="chk-label">
+        <input type="checkbox" id="fresh" />
+        Clear previous results
+      </label>
+      <div class="status">
+        <div class="dot" id="dot"></div>
+        <span id="statusTxt">Idle</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log card -->
+  <div class="card" id="logCard">
+    <div class="card-label">Agent Log</div>
+    <div class="term" id="term"></div>
+  </div>
+
+  <!-- Results card -->
+  <div class="card hidden" id="resultsCard">
+    <div class="card-label">Results</div>
+    <div class="result-body" id="resultBody"></div>
+
+    <div class="files hidden" id="filesSection">
+      <div class="files-label" style="margin-top:20px">Output Files</div>
+      <div id="filesList"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let es = null;
+
+  function runAgent() {
+    const goal = document.getElementById('goal').value.trim();
+    if (!goal) { document.getElementById('goal').focus(); return; }
+
+    if (es) { es.close(); es = null; }
+
+    // Reset UI
+    setStatus('running', 'Running…');
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('btnText').textContent = 'Running…';
+    document.getElementById('spinner').classList.remove('hidden');
+    document.getElementById('term').innerHTML = '';
+    document.getElementById('resultsCard').classList.add('hidden');
+    document.getElementById('resultBody').textContent = '';
+    document.getElementById('filesList').innerHTML = '';
+    document.getElementById('filesSection').classList.add('hidden');
+
+    const fresh = document.getElementById('fresh').checked;
+    es = new EventSource(`/run?goal=${encodeURIComponent(goal)}&fresh=${fresh}`);
+
+    es.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if      (msg.type === 'log')   addLog(msg.level, msg.message);
+      else if (msg.type === 'done')  onDone(msg);
+      else if (msg.type === 'error') onError(msg.message);
+    };
+
+    es.onerror = () => {
+      onError('Connection lost. Is the server running?');
+      es.close();
+    };
+  }
+
+  function addLog(level, text) {
+    const term = document.getElementById('term');
+    const line = document.createElement('div');
+    line.className = `log ${level}`;
+    line.textContent = text;
+    term.appendChild(line);
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function onDone(msg) {
+    es.close(); es = null;
+    setStatus('done', 'Done');
+    resetBtn();
+
+    // Show results
+    document.getElementById('resultsCard').classList.remove('hidden');
+    document.getElementById('resultBody').textContent = msg.response;
+
+    // Show files
+    if (msg.files && msg.files.length > 0) {
+      const section = document.getElementById('filesSection');
+      const list    = document.getElementById('filesList');
+      section.classList.remove('hidden');
+      list.innerHTML = '';
+      msg.files.forEach(f => {
+        list.insertAdjacentHTML('beforeend', `
+          <div class="file-row">
+            <div class="file-info">
+              <span class="file-icon">📄</span>
+              <div>
+                <div class="file-name">${esc(f.name)}</div>
+                <div class="file-size">${esc(f.size)}</div>
+              </div>
+            </div>
+            <button class="btn-dl" onclick="dl('${esc(f.name)}')">Download</button>
+          </div>`);
+      });
+    }
+  }
+
+  function onError(msg) {
+    if (es) { es.close(); es = null; }
+    setStatus('error', 'Error');
+    resetBtn();
+    addLog('ERROR', '✖ ' + msg);
+  }
+
+  function resetBtn() {
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('btnText').textContent = 'Run Agent';
+    document.getElementById('spinner').classList.add('hidden');
+  }
+
+  function setStatus(state, text) {
+    document.getElementById('dot').className = `dot ${state}`;
+    document.getElementById('statusTxt').textContent = text;
+  }
+
+  function dl(name) {
+    window.open(`/download/${encodeURIComponent(name)}`, '_blank');
+  }
+
+  // Prevent XSS in dynamic HTML
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Enter = run, Shift+Enter = newline
+  document.getElementById('goal').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAgent(); }
+  });
+</script>
+</body>
+</html>

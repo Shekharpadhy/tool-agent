@@ -68,6 +68,8 @@ class ReactAgent:
 
         if self.backend == "openai":
             self._init_openai()
+        elif self.backend == "groq":
+            self._init_groq()
         else:
             self._init_ollama()
 
@@ -86,6 +88,25 @@ class ReactAgent:
         self.client = openai.OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         logger.info("ReAct backend: OpenAI (%s)", self.model)
+
+    def _init_groq(self) -> None:
+        """
+        Groq is OpenAI-API-compatible — same client, different base URL.
+        Free tier: https://console.groq.com  (no credit card required)
+        """
+        import openai
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise EnvironmentError(
+                "GROQ_API_KEY is not set.\n"
+                "Get a free key at https://console.groq.com"
+            )
+        self.client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.groq.com/openai/v1",
+        )
+        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        logger.info("ReAct backend: Groq (%s)", self.model)
 
     # ── main loop ──────────────────────────────────────────────────────────────
 
@@ -183,8 +204,8 @@ class ReactAgent:
     # ── LLM backends ──────────────────────────────────────────────────────────
 
     def _call_llm(self, messages: List[Dict]) -> str:
-        if self.backend == "openai":
-            return self._call_openai(messages)
+        if self.backend in ("openai", "groq"):
+            return self._call_openai(messages)   # Groq is OpenAI-compatible
         return self._call_ollama(messages)
 
     def _call_ollama(self, messages: List[Dict]) -> str:
