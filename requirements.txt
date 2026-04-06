@@ -3,3 +3,5 @@ requests
 python-dotenv
 ddgs
 filelock
+pytest
+pytest-mock
