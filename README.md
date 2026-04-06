@@ -4,34 +4,45 @@ An autonomous AI agent that uses a local LLM to decompose any natural-language g
 
 ## Architecture
 
+### ReAct Mode (default)
+
+The agent iteratively reasons about its goal, acts with a tool, observes the result, then decides what to do next — adapting the plan based on real output rather than following a fixed sequence.
+
 ```mermaid
 flowchart TD
-    A([User Goal]) --> B[Planner\nOllama / OpenAI]
-    B --> C[Execution Plan\nJSON steps]
-    C --> D[Executor]
-    D --> E{Tool Router}
-    E -->|search| F[DuckDuckGo]
-    E -->|file_write| G[Local File System]
-    E -->|calendar_create| H[Calendar]
-    F --> I[Step Context\n$last_output]
-    G --> I
-    H --> I
-    I -->|next step| D
-    D --> J[(Memory\nmemory.json)]
-    D --> K[Response Formatter]
-    K --> L([Human-readable Output])
+    A([User Goal]) --> B[ReactAgent\nOllama / OpenAI]
+    B --> C{Thought + Action}
+    C -->|search| D[DuckDuckGo]
+    C -->|file_write| E[Local File System]
+    C -->|calendar_create| F[Calendar]
+    C -->|FINISH| G([Response Formatter])
+    D --> H[Observation]
+    E --> H
+    F --> H
+    H --> I[(Memory\nmemory.json)]
+    H -->|next iteration| B
+    G --> J([Human-readable Output])
+```
+
+### Pipeline Mode (`--mode pipeline`)
+
+The legacy linear flow: LLM generates a full plan upfront, then the executor runs each step in order.
+
+```mermaid
+flowchart LR
+    A([User Goal]) --> B[Planner] --> C[Plan\nJSON] --> D[Executor] --> E[(Memory)] --> F([Output])
 ```
 
 ## Features
 
-- **LLM-powered planning** — Ollama (local, free) or OpenAI decomposes any goal into concrete tool-calling steps
-- **Real web search** — DuckDuckGo integration, no API key required
-- **Step chaining** — `$last_output` variable passes results between steps automatically
-- **Persistent memory** — completed steps are recorded in `data/memory.json` so re-runs skip already-finished work
-- **Retry with exponential backoff** — transient failures (network, TLS) are retried up to 3× before failing gracefully
+- **ReAct loop** — agent reasons, acts, observes the result, then decides the next action dynamically (not a fixed plan)
+- **LLM-powered** — Ollama (local, free) or OpenAI; swap via `LLM_BACKEND` env var
+- **Real web search** — DuckDuckGo, no API key required
+- **Persistent memory** — completed steps recorded in `data/memory.json`; re-runs skip finished work
+- **Retry with exponential backoff** — transient failures retried up to 3× (1s → 2s → 4s)
 - **Thread-safe memory** — file locking prevents corruption from concurrent runs
-- **Structured logging** — timestamps, log levels, and module names; full debug log at `data/logs/agent.log`
-- **51 passing tests** — unit tests for every component with all external calls mocked
+- **Structured logging** — timestamps, levels, module names; full debug log at `data/logs/agent.log`
+- **65 passing tests** — every component covered with all external calls mocked
 
 ## Tech Stack
 
@@ -72,11 +83,14 @@ If it isn't running, start it with `ollama serve` in a separate terminal.
 ## Usage
 
 ```bash
-# Run with a goal
+# Run with a goal (ReAct mode — default)
 python -m src.main "Research the best Python web frameworks and save a report"
 
 # Clear memory to re-run from scratch
 python -m src.main "Research AI agent tools" --fresh
+
+# Use the linear pipeline instead of ReAct
+python -m src.main "Research AI trends" --mode pipeline
 
 # Use OpenAI instead of Ollama
 LLM_BACKEND=openai python -m src.main "Summarise LangChain and save a report"
@@ -111,11 +125,12 @@ All external calls (Ollama, DuckDuckGo, file system) are mocked so tests run ful
 ```
 tool-agent/
 ├── src/
-│   ├── main.py                  # Entry point — CLI + orchestration
+│   ├── main.py                  # Entry point — CLI, --mode react|pipeline
 │   ├── logger.py                # Centralised logging configuration
 │   ├── agent/
-│   │   ├── planner.py           # LLM-powered goal decomposition
-│   │   ├── executor.py          # Step execution + variable resolution
+│   │   ├── react_agent.py       # ReAct loop (Thought → Act → Observe → repeat)
+│   │   ├── planner.py           # LLM-powered goal decomposition (pipeline mode)
+│   │   ├── executor.py          # Step execution + variable resolution (pipeline mode)
 │   │   ├── memory.py            # Thread-safe JSON persistence
 │   │   ├── error_handler.py     # Retry with exponential backoff
 │   │   └── response_formatter.py
@@ -124,6 +139,7 @@ tool-agent/
 │       ├── files.py             # Local file I/O
 │       └── calendar.py          # Calendar event stub
 ├── tests/
+│   ├── test_react_agent.py
 │   ├── test_planner.py
 │   ├── test_executor.py
 │   ├── test_memory.py
@@ -140,7 +156,7 @@ tool-agent/
 
 ## Roadmap
 
-- [ ] ReAct loop — agent reflects on tool output before deciding next step
+- [x] ReAct loop — agent reflects on tool output before deciding next step
 - [ ] Streaming LLM output to terminal
 - [ ] Additional tools (HTTP requests, code execution, email)
 - [ ] Web UI / API endpoint

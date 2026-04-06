@@ -9,10 +9,10 @@ load_dotenv()
 
 from src.logger import setup_logging, get_logger
 
-# Configure logging before importing anything else that uses loggers
 setup_logging()
 logger = get_logger(__name__)
 
+from src.agent.react_agent import ReactAgent
 from src.agent.planner import Planner
 from src.agent.executor import Executor
 from src.agent.memory import Memory
@@ -22,19 +22,45 @@ from src.tools.search import search
 from src.tools.files import file_write
 from src.tools.calendar import calendar_create
 
+TOOLS = {
+    "search": search,
+    "file_write": file_write,
+    "calendar_create": calendar_create,
+}
 
-def run(goal: str, fresh: bool = False) -> None:
-    memory_path = os.path.join(
+
+def _memory_path() -> str:
+    return os.path.join(
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
         "data",
         "memory.json",
     )
 
-    if fresh and os.path.exists(memory_path):
-        os.remove(memory_path)
+
+def run_react(goal: str, fresh: bool = False) -> None:
+    """Run the ReAct (Reason + Act) agent — adapts plan based on observations."""
+    path = _memory_path()
+    if fresh and os.path.exists(path):
+        os.remove(path)
         logger.info("Memory cleared — starting fresh")
 
-    # ── Plan ──────────────────────────────────────────────────────────────────
+    memory = Memory(memory_path=path)
+    agent = ReactAgent(tools=TOOLS, memory=memory)
+    results = agent.run(goal)
+
+    response = ResponseFormatter.format(results)
+    print("─" * 60)
+    print(response)
+    print("─" * 60)
+
+
+def run_pipeline(goal: str, fresh: bool = False) -> None:
+    """Run the linear Planner → Executor pipeline."""
+    path = _memory_path()
+    if fresh and os.path.exists(path):
+        os.remove(path)
+        logger.info("Memory cleared — starting fresh")
+
     planner = Planner()
     plan = planner.create_plan(goal)
 
@@ -42,19 +68,10 @@ def run(goal: str, fresh: bool = False) -> None:
     for step in plan:
         logger.info("  %s. [%s] %s", step["step_id"], step["tool"], step["action"])
 
-    # ── Execute ───────────────────────────────────────────────────────────────
-    memory = Memory(memory_path=memory_path)
-
-    tools = {
-        "search": search,
-        "file_write": file_write,
-        "calendar_create": calendar_create,
-    }
-
-    executor = Executor(tools=tools, memory=memory)
+    memory = Memory(memory_path=path)
+    executor = Executor(tools=TOOLS, memory=memory)
     results = executor.execute_plan(plan)
 
-    # ── Respond ───────────────────────────────────────────────────────────────
     response = ResponseFormatter.format(results)
     print("─" * 60)
     print(response)
@@ -74,12 +91,21 @@ def main() -> None:
     parser.add_argument(
         "--fresh",
         action="store_true",
-        help="Clear memory before running (re-executes all steps).",
+        help="Clear memory before running.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["react", "pipeline"],
+        default="react",
+        help="react (default): iterative ReAct loop. pipeline: linear plan+execute.",
     )
     args = parser.parse_args()
 
     try:
-        run(goal=args.goal, fresh=args.fresh)
+        if args.mode == "pipeline":
+            run_pipeline(goal=args.goal, fresh=args.fresh)
+        else:
+            run_react(goal=args.goal, fresh=args.fresh)
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)
