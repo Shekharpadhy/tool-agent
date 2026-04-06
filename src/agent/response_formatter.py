@@ -1,27 +1,29 @@
 class ResponseFormatter:
     """
-    Converts raw execution results into human-friendly responses.
+    Converts raw execution results into a human-readable response.
+    Output is driven by actual tool results, not hardcoded strings.
     """
 
     @staticmethod
     def format(results: list) -> str:
         if not results:
-            return "I didn’t need to do anything because everything was already completed earlier."
+            return (
+                "Everything was already completed in a previous run.\n"
+                "Delete data/memory.json to start fresh."
+            )
 
-        lines = ["Here’s what I did for you:"]
+        lines = ["Here's what I did:\n"]
 
         for result in results:
-            tool = result.get("tool")
-            output = result.get("output")
+            action = result.get("action") or result.get("tool")
+            output = result.get("output", "")
 
-            if tool == "search":
-                lines.append("• I researched the latest AI trends.")
-            elif tool == "file_write":
-                lines.append("• I saved a summary to a file for you.")
-            elif tool == "calendar_create":
-                lines.append("• I scheduled your meeting as requested.")
-            else:
-                lines.append(f"• I completed an action using {tool}.")
+            lines.append(f"  [{action}]")
+
+            # Indent the output so it reads as a sub-section
+            for line in str(output).splitlines():
+                lines.append(f"    {line}")
+
+            lines.append("")  # blank line between steps
 
         return "\n".join(lines)
-

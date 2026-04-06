@@ -1,55 +1,95 @@
+from src.logger import get_logger
+from .error_handler import with_retry
 from .memory import Memory
+
+logger = get_logger(__name__)
 
 
 class Executor:
     """
-    Executor executes a plan step by step and records results in memory.
+    Executes a plan step by step, passing results between steps and
+    recording everything in persistent memory.
+
+    Variable resolution:
+      If a tool input value is the string "$last_output", the executor
+      substitutes it with the output of the most recently completed step.
+      This lets the planner chain steps without knowing the results upfront.
+
+      Example plan step:
+        {"tool": "file_write", "input": {"filename": "out.txt", "content": "$last_output"}}
+
+    Error handling:
+      Each tool call is wrapped in with_retry(), which retries transient
+      errors (network, TLS) up to 3 times with exponential backoff.
+      Non-retryable errors are caught and recorded as the step output so
+      the remaining steps can still execute.
     """
 
     def __init__(self, tools: dict, memory: Memory):
         self.tools = tools
         self.memory = memory
 
-        # Load memory ONCE and cache executed step IDs
-        stored_memory = self.memory.load()
+        stored = self.memory.load()
         self.executed_step_ids = {
-            step["step_id"] for step in stored_memory.get("executed_steps", [])
+            step["step_id"] for step in stored.get("executed_steps", [])
         }
 
     def execute_plan(self, plan: list) -> list:
         results = []
+        context: dict = {}
 
-        print("\n[Executor] Starting plan execution...\n")
+        logger.info("Starting plan execution (%d step(s))", len(plan))
 
         for step in plan:
             step_id = step.get("step_id")
             tool_name = step.get("tool")
-            tool_input = step.get("input", {})
+            raw_input = step.get("input", {})
+            action = step.get("action", tool_name)
 
-            # Skip already executed steps
             if step_id in self.executed_step_ids:
-                print(f"[Executor] Skipping step {step_id} (already executed)")
+                logger.info("Step %s skipped (already in memory)", step_id)
                 continue
 
-            print(f"[Executor] Executing step {step_id} using tool '{tool_name}'")
-
             if tool_name not in self.tools:
-                raise ValueError(f"Tool '{tool_name}' not found")
+                raise ValueError(
+                    f"Unknown tool '{tool_name}'. "
+                    f"Available: {list(self.tools.keys())}"
+                )
 
-            tool_function = self.tools[tool_name]
+            resolved_input = self._resolve_variables(raw_input, context)
+            logger.info("Step %s — %s", step_id, action)
+            logger.debug("Input: %s", resolved_input)
 
-            output = tool_function(**tool_input)
+            tool_fn = self.tools[tool_name]
+            try:
+                output = with_retry(tool_fn, kwargs=resolved_input)
+            except Exception as exc:
+                output = f"[Tool error] {type(exc).__name__}: {exc}"
+                logger.error("Step %s failed after all retries: %s", step_id, exc)
 
-            # Save to memory
+            context["last_output"] = output
+            context[f"step_{step_id}_output"] = output
+
             self.memory.save_step(step_id, tool_name, output)
             self.executed_step_ids.add(step_id)
 
             results.append({
                 "step_id": step_id,
+                "action": action,
                 "tool": tool_name,
-                "output": output
+                "output": output,
             })
 
-        print("\n[Executor] Plan execution completed.\n")
+        logger.info("All steps complete")
         return results
 
+    def _resolve_variables(self, input_dict: dict, context: dict) -> dict:
+        """Replace placeholder strings (e.g. '$last_output') with real values."""
+        resolved = {}
+        for key, value in input_dict.items():
+            if isinstance(value, str) and value.startswith("$"):
+                var_name = value[1:]
+                resolved[key] = context.get(var_name, value)
+            else:
+                resolved[key] = value
+        return resolved

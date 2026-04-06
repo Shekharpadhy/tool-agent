@@ -1,3 +1,5 @@
 openai
 requests
 python-dotenv
+ddgs
+filelock

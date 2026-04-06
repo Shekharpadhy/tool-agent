@@ -1,9 +1,13 @@
-def calendar_create(date: str, time: str) -> str:
-    """
-    Mock calendar tool.
-    Simulates scheduling a meeting.
-    """
-    print(f"[Calendar Tool] Scheduling meeting on {date} at {time}")
+from src.logger import get_logger
 
-    return f"Meeting scheduled on {date} at {time}."
+logger = get_logger(__name__)
+
+
+def calendar_create(date: str, time: str, title: str = "Meeting") -> str:
+    """
+    Simulates scheduling a calendar event.
+    (Replace with a real calendar API integration in a future phase.)
+    """
+    logger.info("Scheduling '%s' on %s at %s", title, date, time)
+    return f"Event '{title}' scheduled on {date} at {time}."
 
