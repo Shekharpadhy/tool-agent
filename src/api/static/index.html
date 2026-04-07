@@ -1099,43 +1099,76 @@
      AGENT LOGIC
 ───────────────────────────────────────────── -->
 <script>
-  let es = null, timerID = null;
+  let es = null, timerID = null, retryTimer = null;
   let iterC = 0, toolC = 0, t0 = null;
+  let currentGoal = '', currentFresh = false;
+  let retryCount = 0, gotFirstMsg = false;
+  const MAX_RETRIES = 18;   // ~72s total — covers Render free-tier cold start
 
   function runAgent() {
     const goal = document.getElementById('goal').value.trim();
     if (!goal) { document.getElementById('goal').focus(); return; }
+
+    currentGoal  = goal;
+    currentFresh = document.getElementById('fresh').checked;
+    retryCount   = 0;
+    gotFirstMsg  = false;
+
+    _startStream(true);
+  }
+
+  function _startStream(resetUI) {
     if (es) { es.close(); es = null; }
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
 
-    // Reset
-    iterC = 0; toolC = 0; t0 = Date.now();
-    tick();
+    if (resetUI) {
+      iterC = 0; toolC = 0; t0 = Date.now();
+      tick();
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('btnText').textContent = 'Running';
+      document.getElementById('spinner').classList.remove('hidden');
+      document.getElementById('runIcon').classList.add('hidden');
+      document.getElementById('term').innerHTML = '';
+      document.getElementById('resultsWrap').classList.add('hidden');
+      document.getElementById('resultBody').textContent = '';
+      document.getElementById('filesList').innerHTML = '';
+      document.getElementById('filesWrap').classList.add('hidden');
+    }
 
-    setStatus('running', 'Running');
-    const btn = document.getElementById('runBtn');
-    btn.disabled = true;
-    document.getElementById('btnText').textContent = 'Running';
-    document.getElementById('spinner').classList.remove('hidden');
-    document.getElementById('runIcon').classList.add('hidden');
-    document.getElementById('term').innerHTML = '';
-    document.getElementById('resultsWrap').classList.add('hidden');
-    document.getElementById('resultBody').textContent = '';
-    document.getElementById('filesList').innerHTML = '';
-    document.getElementById('filesWrap').classList.add('hidden');
     document.getElementById('liveDot').classList.add('on');
     document.getElementById('liveLabel').textContent = 'Live';
+    setStatus('running', retryCount === 0 ? 'Running' : 'Waking up\u2026');
 
-    const fresh = document.getElementById('fresh').checked;
-    es = new EventSource(`/run?goal=${encodeURIComponent(goal)}&fresh=${fresh}`);
+    es = new EventSource(`/run?goal=${encodeURIComponent(currentGoal)}&fresh=${currentFresh}`);
 
     es.onmessage = e => {
+      gotFirstMsg = true;
+      retryCount  = 0;
+      setStatus('running', 'Running');
+      document.getElementById('liveLabel').textContent = 'Live';
       const m = JSON.parse(e.data);
       if      (m.type === 'log')   addLog(m.level, m.message);
       else if (m.type === 'done')  onDone(m);
       else if (m.type === 'error') onError(m.message);
     };
 
-    es.onerror = () => { onError('Connection lost. Is the server running?'); es.close(); };
+    es.onerror = () => {
+      if (es) { es.close(); es = null; }
+
+      // If we already got data, this is a real mid-run disconnect
+      if (gotFirstMsg) { onError('Connection lost mid-run. Please try again.'); return; }
+
+      // Otherwise the server may be cold-starting — retry silently
+      if (retryCount < MAX_RETRIES) {
+        retryCount++;
+        const secsLeft = (MAX_RETRIES - retryCount) * 4;
+        setStatus('running', `Waking up\u2026 (${retryCount}/${MAX_RETRIES})`);
+        addSysLog(`Server cold-starting on Render free tier \u2014 retrying in 4s (attempt ${retryCount}/${MAX_RETRIES}, ~${secsLeft}s left)\u2026`);
+        retryTimer = setTimeout(() => _startStream(false), 4000);
+      } else {
+        onError('Server did not respond after ' + MAX_RETRIES + ' retries. Check Render logs or upgrade to a paid instance to avoid spin-down.');
+      }
+    };
   }
 
   function tick() {
@@ -1221,8 +1254,22 @@
     setTimeout(() => document.getElementById('resultsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
   }
 
+  function addSysLog(text) {
+    const term = document.getElementById('term');
+    const line = document.createElement('div');
+    line.className = 'll';
+    const now = new Date();
+    line.innerHTML = `
+      <span class="ll-ts">${now.toTimeString().slice(0,8)}</span>
+      <span class="tag tag-warn">SYS</span>
+      <span class="lm lm-warn">${esc(text)}</span>`;
+    term.appendChild(line);
+    term.scrollTop = term.scrollHeight;
+  }
+
   function onError(msg) {
     if (es) { es.close(); es = null; }
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
     clearInterval(timerID);
     setStatus('error', 'Error');
     resetBtn();
