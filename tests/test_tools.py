@@ -1,5 +1,5 @@
 """
-Tests for individual tools — file_write and search.
+Tests for individual tools — file_write, search, and calendar_create.
 External network calls are mocked so these tests run offline.
 """
 import os
@@ -8,8 +8,10 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 import src.tools.files as files_module
+import src.tools.calendar as calendar_module
 from src.tools.files import file_write
 from src.tools.search import search
+from src.tools.calendar import calendar_create
 
 
 # ── file_write ────────────────────────────────────────────────────────────────
@@ -128,3 +130,39 @@ def test_tavily_no_results(monkeypatch):
         result = search("obscure query")
 
     assert "No results found" in result
+
+
+# ── calendar_create ───────────────────────────────────────────────────────────
+
+def test_calendar_create_writes_ics_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(calendar_module, "OUTPUTS_DIR", str(tmp_path))
+    result = calendar_create("2026-04-10", "14:30", "Team Sync")
+    ics_files = list(tmp_path.glob("*.ics"))
+    assert len(ics_files) == 1
+    assert "Team Sync" in result
+
+
+def test_calendar_create_ics_content_is_valid(tmp_path, monkeypatch):
+    monkeypatch.setattr(calendar_module, "OUTPUTS_DIR", str(tmp_path))
+    calendar_create("2026-04-10", "09:00", "Standup")
+    ics_file = list(tmp_path.glob("*.ics"))[0]
+    content = ics_file.read_text()
+    assert "BEGIN:VCALENDAR" in content
+    assert "BEGIN:VEVENT" in content
+    assert "SUMMARY:Standup" in content
+    assert "DTSTART:20260410T090000" in content
+
+
+def test_calendar_create_returns_confirmation(tmp_path, monkeypatch):
+    monkeypatch.setattr(calendar_module, "OUTPUTS_DIR", str(tmp_path))
+    result = calendar_create("2026-05-01", "10:00", "Demo Day")
+    assert "Demo Day" in result
+    assert "2026-05-01" in result
+    assert ".ics" in result
+
+
+def test_calendar_create_invalid_date_returns_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(calendar_module, "OUTPUTS_DIR", str(tmp_path))
+    result = calendar_create("not-a-date", "25:99", "Bad Event")
+    assert "Invalid" in result
+    assert not list(tmp_path.glob("*.ics"))
