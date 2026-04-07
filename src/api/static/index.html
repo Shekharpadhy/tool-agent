@@ -4,401 +4,1251 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tool Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary:      #6366f1;
-      --primary-dark: #4f46e5;
-      --bg:           #f1f5f9;
-      --card:         #ffffff;
-      --text:         #1e293b;
-      --muted:        #64748b;
-      --border:       #e2e8f0;
-      --term-bg:      #0f172a;
-      --term-text:    #e2e8f0;
-      --success:      #22c55e;
+      --bg:           #07090f;
+      --surface:      #0c1120;
+      --card:         #0f1624;
+      --border:       rgba(255,255,255,0.06);
+      --border-hi:    rgba(0,210,255,0.18);
+      --accent:       #00d2ff;
+      --accent-dim:   rgba(0,210,255,0.1);
+      --accent-glow:  rgba(0,210,255,0.3);
+      --success:      #10b981;
       --warning:      #f59e0b;
       --error:        #ef4444;
-      --radius:       14px;
+      --text:         #dde6f0;
+      --text-dim:     #8899aa;
+      --text-muted:   #3d5066;
+      --thought:      #a78bfa;
+      --obs:          #10b981;
+      --font:         'Outfit', system-ui, sans-serif;
+      --mono:         'JetBrains Mono', 'SF Mono', monospace;
+      --r:            14px;
+      --r-lg:         22px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font);
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
-      padding: 32px 16px 64px;
+      min-height: 100dvh;
+      overflow-x: hidden;
     }
 
-    /* ── layout ── */
-    .wrap { max-width: 780px; margin: 0 auto; }
-
-    /* ── header ── */
-    header {
-      text-align: center;
-      margin-bottom: 36px;
-    }
-    header .logo {
-      font-size: 2.4rem;
-      line-height: 1;
-      margin-bottom: 8px;
-    }
-    header h1 {
-      font-size: 1.8rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--primary), #a855f7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    header p {
-      color: var(--muted);
-      margin-top: 6px;
-      font-size: 0.95rem;
+    /* ── BG CANVAS ── */
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.45;
     }
 
-    /* ── card ── */
-    .card {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 20px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px var(--border);
-    }
-    .card-label {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      color: var(--muted);
-      margin-bottom: 14px;
+    /* ── PAGE WRAP ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 0 28px;
     }
 
-    /* ── textarea ── */
-    textarea {
-      width: 100%;
-      min-height: 84px;
-      padding: 14px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      font-size: 1rem;
-      font-family: inherit;
-      color: var(--text);
-      resize: vertical;
-      transition: border-color .2s;
-      line-height: 1.5;
-    }
-    textarea:focus { outline: none; border-color: var(--primary); }
-    textarea::placeholder { color: #94a3b8; }
-
-    /* ── controls row ── */
-    .controls {
+    /* ═══════════════ NAV ═══════════════ */
+    nav {
       display: flex;
       align-items: center;
-      gap: 14px;
-      margin-top: 14px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 22px 0 26px;
+      border-bottom: 1px solid var(--border);
     }
 
-    /* ── primary button ── */
-    .btn-run {
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent) 0%, #0066ff 100%);
+      box-shadow: 0 0 18px var(--accent-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-mark svg {
+      width: 18px; height: 18px;
+      stroke: #07090f;
+      fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .logo-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+
+    .logo-name em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 11px;
+      border-radius: 100px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .pill-ghost {
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .pill-live {
+      background: var(--accent-dim);
+      border: 1px solid var(--border-hi);
+      color: var(--accent);
+    }
+
+    .pulse-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.3; transform:scale(.7); }
+    }
+
+    /* ═══════════════ HERO ═══════════════ */
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 52px;
+      align-items: center;
+      padding: 68px 0 60px;
+    }
+
+    .hero-eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 11px 28px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: .95rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background .2s, transform .1s, box-shadow .2s;
-      box-shadow: 0 2px 8px rgba(99,102,241,.35);
+      margin-bottom: 22px;
+      padding: 5px 13px;
+      background: var(--accent-dim);
+      border: 1px solid var(--border-hi);
+      border-radius: 100px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      text-transform: uppercase;
     }
-    .btn-run:hover:not(:disabled)  { background: var(--primary-dark); box-shadow: 0 4px 14px rgba(99,102,241,.45); }
-    .btn-run:active:not(:disabled) { transform: scale(.97); }
-    .btn-run:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 
-    /* ── checkbox ── */
-    .chk-label {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: .88rem;
-      color: var(--muted);
-      cursor: pointer;
-      user-select: none;
+    .hero h1 {
+      font-size: clamp(2.2rem, 4.2vw, 3.6rem);
+      font-weight: 800;
+      line-height: 1.07;
+      letter-spacing: -0.045em;
+      color: var(--text);
+      margin-bottom: 20px;
     }
-    .chk-label input { accent-color: var(--primary); width: 15px; height: 15px; }
 
-    /* ── status badge ── */
-    .status {
-      margin-left: auto;
+    .hero h1 .hl {
+      background: linear-gradient(90deg, var(--accent), #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--text-dim);
+      line-height: 1.75;
+      max-width: 50ch;
+      margin-bottom: 30px;
+    }
+
+    .chips {
       display: flex;
-      align-items: center;
+      flex-wrap: wrap;
       gap: 7px;
-      font-size: .82rem;
-      color: var(--muted);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 13px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 0.76rem;
       font-weight: 500;
+      color: var(--text-dim);
+      transition: all .22s cubic-bezier(.16,1,.3,1);
     }
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #cbd5e1;
+
+    .chip:hover {
+      background: var(--accent-dim);
+      border-color: var(--border-hi);
+      color: var(--accent);
+    }
+
+    .chip svg {
+      width: 13px; height: 13px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Hero 3D Canvas */
+    .hero-viz {
+      position: relative;
+      height: 330px;
+      border-radius: var(--r-lg);
+      border: 1px solid rgba(0,210,255,0.09);
+      background: radial-gradient(ellipse at 50% 40%, rgba(0,210,255,0.04) 0%, transparent 70%);
+      overflow: hidden;
+    }
+
+    #nodeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ═══════════════ MAIN SPLIT ═══════════════ */
+    .split {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 18px;
+      padding-bottom: 28px;
+    }
+
+    /* ═══════════════ INPUT PANEL ═══════════════ */
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 26px;
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    .panel:hover {
+      box-shadow: 0 20px 48px rgba(0,0,0,.45), 0 0 0 1px rgba(0,210,255,.08);
+    }
+
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 148px;
+      padding: 15px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      font-size: .92rem;
+      font-family: var(--font);
+      color: var(--text);
+      resize: vertical;
+      line-height: 1.65;
+      transition: border-color .2s, background .2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: rgba(0,210,255,.35);
+      background: rgba(0,210,255,.025);
+    }
+
+    textarea::placeholder { color: var(--text-muted); font-style: italic; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-top: 13px;
+      flex-wrap: wrap;
+    }
+
+    /* Run Button */
+    .btn-run {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 26px;
+      background: var(--accent);
+      color: #07090f;
+      border: none;
+      border-radius: var(--r);
+      font-size: .88rem;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      overflow: hidden;
+      letter-spacing: -0.01em;
+      box-shadow: 0 4px 22px var(--accent-glow);
+      transition: transform .15s cubic-bezier(.16,1,.3,1),
+                  box-shadow .25s cubic-bezier(.16,1,.3,1);
+    }
+
+    .btn-run::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,.22);
+      transform: translateX(-110%) skewX(-18deg);
+      transition: transform .45s cubic-bezier(.16,1,.3,1);
+    }
+
+    .btn-run:hover:not(:disabled)::after  { transform: translateX(150%) skewX(-18deg); }
+    .btn-run:hover:not(:disabled)         { transform: translateY(-2px); box-shadow: 0 8px 32px var(--accent-glow); }
+    .btn-run:active:not(:disabled)        { transform: translateY(0) scale(.98); }
+    .btn-run:disabled                     { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+    .btn-run svg {
+      width: 15px; height: 15px;
+      stroke: #07090f; fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round; stroke-linejoin: round;
       flex-shrink: 0;
     }
-    .dot.running { background: var(--primary); animation: blink 1s ease-in-out infinite; }
-    .dot.done    { background: var(--success); }
-    .dot.error   { background: var(--error); }
 
-    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
-
-    /* ── spinner ── */
     .spinner {
-      width: 15px; height: 15px;
-      border: 2.5px solid rgba(255,255,255,.3);
-      border-top-color: #fff;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(7,9,15,.3);
+      border-top-color: #07090f;
       border-radius: 50%;
       animation: spin .55s linear infinite;
       flex-shrink: 0;
     }
+
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── terminal ── */
-    .term {
-      background: var(--term-bg);
-      border-radius: 10px;
-      padding: 16px 18px;
-      font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
-      font-size: .78rem;
-      line-height: 1.65;
-      color: var(--term-text);
-      min-height: 56px;
-      max-height: 340px;
-      overflow-y: auto;
+    /* Checkbox */
+    .chk {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
     }
-    .term:empty::before { content: "Logs will appear here…"; color: #475569; }
 
-    .log { word-break: break-all; }
-    .log.INFO    { color: #94a3b8; }
-    .log.WARNING { color: var(--warning); }
-    .log.ERROR   { color: var(--error); }
+    .chk input { accent-color: var(--accent); width: 13px; height: 13px; }
 
-    /* term scrollbar */
-    .term::-webkit-scrollbar { width: 5px; }
-    .term::-webkit-scrollbar-track { background: transparent; }
-    .term::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-
-    /* ── results text ── */
-    .result-body {
-      white-space: pre-wrap;
-      font-family: "SF Mono", "Cascadia Code", monospace;
-      font-size: .82rem;
-      line-height: 1.7;
-      color: var(--text);
-      max-height: 420px;
-      overflow-y: auto;
-      background: #f8fafc;
+    /* Status pill */
+    .status-pill {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      background: rgba(255,255,255,.03);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px;
+      border-radius: 100px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: all .3s ease;
     }
-    .result-body::-webkit-scrollbar { width: 5px; }
-    .result-body::-webkit-scrollbar-track { background: transparent; }
-    .result-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
-    /* ── files list ── */
-    .files { margin-top: 20px; }
-    .files-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 12px; }
+    .status-pill.running { background: var(--accent-dim); border-color: var(--border-hi); color: var(--accent); }
+    .status-pill.done    { background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.25); color: var(--success); }
+    .status-pill.error   { background: rgba(239,68,68,.1);  border-color: rgba(239,68,68,.25);  color: var(--error); }
+
+    .sdot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .status-pill.running .sdot { animation: pulse 1.1s ease-in-out infinite; }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      font-family: var(--mono);
+      line-height: 1;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .stat-val.accent { color: var(--accent); }
+
+    .stat-lbl {
+      font-size: .63rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-weight: 600;
+    }
+
+    /* ═══════════════ TERMINAL ═══════════════ */
+    .right-col { display: flex; flex-direction: column; }
+
+    .term-card {
+      background: #060b14;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 500px;
+    }
+
+    .term-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 16px;
+      background: rgba(255,255,255,.025);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tls { display: flex; gap: 5px; }
+    .tl  { width: 11px; height: 11px; border-radius: 50%; }
+    .tl-r { background: #ff5f57; }
+    .tl-y { background: #ffbd2e; }
+    .tl-g { background: #28c840; }
+
+    .term-title {
+      font-size: .72rem;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      margin-left: 6px;
+      letter-spacing: .02em;
+    }
+
+    .live-badge {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .live-dot.on {
+      background: var(--accent);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .term-body {
+      flex: 1;
+      padding: 16px 18px;
+      font-family: var(--mono);
+      font-size: .74rem;
+      line-height: 1.75;
+      color: #6a8090;
+      overflow-y: auto;
+      min-height: 420px;
+      max-height: 580px;
+    }
+
+    .term-body:empty::before {
+      content: "// Agent standby — enter a goal and press Run";
+      color: #1e3040;
+      font-style: italic;
+    }
+
+    .term-body::-webkit-scrollbar { width: 4px; }
+    .term-body::-webkit-scrollbar-track { background: transparent; }
+    .term-body::-webkit-scrollbar-thumb { background: #182535; border-radius: 2px; }
+
+    /* Log lines */
+    .ll { display: flex; gap: 9px; margin-bottom: 1px; word-break: break-word; align-items: flex-start; }
+
+    .ll-ts {
+      color: #1e3040;
+      flex-shrink: 0;
+      font-size: .68rem;
+      padding-top: 2px;
+    }
+
+    .tag {
+      flex-shrink: 0;
+      font-size: .6rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-top: 2px;
+      align-self: flex-start;
+    }
+
+    .tag-think { background: rgba(167,139,250,.12); color: var(--thought); border: 1px solid rgba(167,139,250,.2); }
+    .tag-act   { background: rgba(0,210,255,.1);    color: var(--accent);  border: 1px solid rgba(0,210,255,.2); }
+    .tag-obs   { background: rgba(16,185,129,.1);   color: var(--obs);     border: 1px solid rgba(16,185,129,.2); }
+    .tag-iter  { background: rgba(0,210,255,.05);   color: #3a5a6a;        border: 1px solid rgba(0,210,255,.08); }
+    .tag-warn  { background: rgba(245,158,11,.1);   color: var(--warning); border: 1px solid rgba(245,158,11,.2); }
+    .tag-err   { background: rgba(239,68,68,.1);    color: var(--error);   border: 1px solid rgba(239,68,68,.2); }
+    .tag-info  { background: rgba(255,255,255,.03); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .lm         { flex: 1; color: #6a8090; }
+    .lm-think   { color: #c4b5fd; }
+    .lm-act     { color: #67e8f9; }
+    .lm-obs     { color: #6ee7b7; }
+    .lm-warn    { color: #fbbf24; }
+    .lm-err     { color: #fca5a5; }
+    .lm-iter    { color: #2a4050; }
+
+    /* ═══════════════ RESULTS ═══════════════ */
+    .results-wrap {
+      padding-bottom: 64px;
+    }
+
+    .results-card {
+      background: var(--card);
+      border: 1px solid rgba(16,185,129,.18);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+    }
+
+    .results-hdr {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 16px 22px;
+      background: rgba(16,185,129,.05);
+      border-bottom: 1px solid rgba(16,185,129,.1);
+    }
+
+    .res-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(16,185,129,.5);
+    }
+
+    .res-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--success);
+    }
+
+    .results-body {
+      padding: 22px;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.85;
+      color: var(--text-dim);
+      white-space: pre-wrap;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .results-body::-webkit-scrollbar { width: 4px; }
+    .results-body::-webkit-scrollbar-track { background: transparent; }
+    .results-body::-webkit-scrollbar-thumb { background: #182535; border-radius: 2px; }
+
+    .files-wrap {
+      padding: 18px 22px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .files-lbl {
+      font-size: .63rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 11px;
+    }
 
     .file-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 11px 14px;
-      background: #f8fafc;
+      background: rgba(255,255,255,.02);
       border: 1px solid var(--border);
-      border-radius: 9px;
+      border-radius: var(--r);
       margin-bottom: 8px;
+      transition: background .2s, border-color .2s;
     }
-    .file-info { display: flex; align-items: center; gap: 10px; }
-    .file-icon { font-size: 1.2rem; }
-    .file-name { font-size: .9rem; font-weight: 600; }
-    .file-size { font-size: .75rem; color: var(--muted); }
+
+    .file-row:hover {
+      background: var(--accent-dim);
+      border-color: var(--border-hi);
+    }
+
+    .file-info { display: flex; align-items: center; gap: 11px; }
+
+    .file-icon {
+      width: 34px; height: 34px;
+      background: var(--accent-dim);
+      border: 1px solid var(--border-hi);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .file-icon svg {
+      width: 15px; height: 15px;
+      stroke: var(--accent); fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .fname {
+      font-size: .85rem; font-weight: 600;
+      color: var(--text); font-family: var(--mono);
+    }
+
+    .fsize { font-size: .7rem; color: var(--text-muted); margin-top: 1px; }
 
     .btn-dl {
-      padding: 7px 16px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 7px;
-      font-size: .8rem;
-      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 14px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid rgba(0,210,255,.22);
+      border-radius: 8px;
+      font-size: .75rem; font-weight: 600;
+      font-family: var(--font);
       cursor: pointer;
-      transition: background .2s;
       flex-shrink: 0;
+      transition: all .2s cubic-bezier(.16,1,.3,1);
     }
-    .btn-dl:hover { background: var(--primary-dark); }
 
-    /* ── utility ── */
+    .btn-dl:hover { background: var(--accent-dim); border-color: var(--border-hi); transform: translateY(-1px); }
+
+    .btn-dl svg {
+      width: 12px; height: 12px;
+      stroke: currentColor; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* ═══════════════ UTILITIES ═══════════════ */
     .hidden { display: none !important; }
+
+    /* ═══════════════ RESPONSIVE ═══════════════ */
+    @media (max-width: 1024px) {
+      .hero { grid-template-columns: 1fr; padding: 48px 0 40px; }
+      .hero-viz { display: none; }
+      .split { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .page { padding: 0 16px; }
+      nav   { padding: 16px 0 20px; }
+      .hero h1 { font-size: 2rem; }
+      .stats { grid-template-columns: 1fr; }
+      .controls { flex-direction: column; align-items: flex-start; }
+      .status-pill { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
-<div class="wrap">
 
-  <!-- Header -->
-  <header>
-    <div class="logo">🤖</div>
-    <h1>Tool Agent</h1>
-    <p>An autonomous AI agent that researches, reasons, and saves results for you</p>
-  </header>
+<canvas id="bgCanvas"></canvas>
 
-  <!-- Input card -->
-  <div class="card">
-    <div class="card-label">Your Goal</div>
-    <textarea id="goal"
-      placeholder="e.g. Research the best Python web frameworks and save a comparison report&#10;(Press Enter to run, Shift+Enter for a new line)"></textarea>
-    <div class="controls">
-      <button class="btn-run" id="runBtn" onclick="runAgent()">
-        <span id="btnText">Run Agent</span>
-        <div id="spinner" class="spinner hidden"></div>
-      </button>
-      <label class="chk-label">
-        <input type="checkbox" id="fresh" />
-        Clear previous results
-      </label>
-      <div class="status">
-        <div class="dot" id="dot"></div>
-        <span id="statusTxt">Idle</span>
+<div class="page">
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
+        </svg>
+      </div>
+      <span class="logo-name">Tool<em>Agent</em></span>
+    </div>
+    <div class="nav-right">
+      <span class="pill pill-ghost">ReAct Loop</span>
+      <span class="pill pill-live">
+        <span class="pulse-dot"></span>
+        Live
+      </span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div>
+      <div class="hero-eyebrow">
+        <span class="pulse-dot"></span>
+        Autonomous AI Agent
+      </div>
+      <h1>AI that <span class="hl">thinks<br>out loud</span></h1>
+      <p class="hero-sub">
+        Watch your agent reason through goals in real time — searching the web, writing files, and building a visible chain of thought you can follow step by step.
+      </p>
+      <div class="chips">
+        <span class="chip">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Web Search
+        </span>
+        <span class="chip">
+          <svg viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          File Writing
+        </span>
+        <span class="chip">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Calendar
+        </span>
+        <span class="chip">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          Multi-LLM
+        </span>
+      </div>
+    </div>
+
+    <!-- 3D node canvas -->
+    <div class="hero-viz">
+      <canvas id="nodeCanvas"></canvas>
+    </div>
+  </section>
+
+  <!-- MAIN SPLIT -->
+  <div class="split">
+
+    <!-- LEFT: Input + Stats -->
+    <div class="left-col">
+      <div class="panel" id="inputCard">
+        <div class="section-label">Your Goal</div>
+        <textarea id="goal" placeholder="e.g. Research the best Python frameworks and save a comparison report&#10;&#10;Press Enter to run  ·  Shift+Enter for new line"></textarea>
+        <div class="controls">
+          <button class="btn-run" id="runBtn" onclick="runAgent()">
+            <svg id="runIcon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span id="btnText">Run Agent</span>
+            <div id="spinner" class="spinner hidden"></div>
+          </button>
+          <label class="chk">
+            <input type="checkbox" id="fresh" />
+            Clear memory
+          </label>
+          <div class="status-pill" id="statusPill">
+            <span class="sdot" id="sdot"></span>
+            <span id="statusTxt">Idle</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-val accent" id="cIter">0</div><div class="stat-lbl">Iterations</div></div>
+        <div class="stat"><div class="stat-val" id="cTools">0</div><div class="stat-lbl">Tool Calls</div></div>
+        <div class="stat"><div class="stat-val" id="cTime">0s</div><div class="stat-lbl">Elapsed</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Terminal -->
+    <div class="right-col">
+      <div class="term-card">
+        <div class="term-header">
+          <div class="tls">
+            <div class="tl tl-r"></div>
+            <div class="tl tl-y"></div>
+            <div class="tl tl-g"></div>
+          </div>
+          <span class="term-title">agent.log — ReAct Loop</span>
+          <div class="live-badge">
+            <div class="live-dot" id="liveDot"></div>
+            <span id="liveLabel">Standby</span>
+          </div>
+        </div>
+        <div class="term-body" id="term"></div>
       </div>
     </div>
   </div>
 
-  <!-- Log card -->
-  <div class="card" id="logCard">
-    <div class="card-label">Agent Log</div>
-    <div class="term" id="term"></div>
-  </div>
-
-  <!-- Results card -->
-  <div class="card hidden" id="resultsCard">
-    <div class="card-label">Results</div>
-    <div class="result-body" id="resultBody"></div>
-
-    <div class="files hidden" id="filesSection">
-      <div class="files-label" style="margin-top:20px">Output Files</div>
-      <div id="filesList"></div>
+  <!-- RESULTS -->
+  <div class="results-wrap hidden" id="resultsWrap">
+    <div class="results-card">
+      <div class="results-hdr">
+        <div class="res-dot"></div>
+        <span class="res-title">Agent Result</span>
+      </div>
+      <div class="results-body" id="resultBody"></div>
+      <div class="files-wrap hidden" id="filesWrap">
+        <div class="files-lbl">Output Files</div>
+        <div id="filesList"></div>
+      </div>
     </div>
   </div>
 
-</div>
+</div><!-- /page -->
 
+<!-- ─────────────────────────────────────────────
+     BACKGROUND PARTICLE NETWORK (Canvas 2D)
+───────────────────────────────────────────── -->
 <script>
-  let es = null;
+(function () {
+  const cv = document.getElementById('bgCanvas');
+  const ctx = cv.getContext('2d');
+  let W, H;
+
+  function resize() {
+    W = cv.width  = window.innerWidth;
+    H = cv.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const N = 70;
+  const pts = Array.from({length: N}, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: (Math.random() - .5) * .35,
+    vy: (Math.random() - .5) * .35,
+  }));
+
+  function draw() {
+    requestAnimationFrame(draw);
+    ctx.clearRect(0, 0, W, H);
+
+    pts.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > W) p.vx *= -1;
+      if (p.y < 0 || p.y > H) p.vy *= -1;
+    });
+
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const dx = pts[i].x - pts[j].x;
+        const dy = pts[i].y - pts[j].y;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        if (d < 130) {
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x, pts[i].y);
+          ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.strokeStyle = `rgba(0,180,255,${(1 - d/130) * .15})`;
+          ctx.lineWidth = .7;
+          ctx.stroke();
+        }
+      }
+    }
+
+    pts.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.8, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,200,255,.4)';
+      ctx.fill();
+    });
+  }
+
+  draw();
+})();
+</script>
+
+<!-- ─────────────────────────────────────────────
+     HERO 3D NODE CANVAS (perspective-projected)
+───────────────────────────────────────────── -->
+<script>
+(function () {
+  const cv  = document.getElementById('nodeCanvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect();
+    cv.width  = r.width;
+    cv.height = r.height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const N = 28;
+  const FOV = 320;
+  const nodes = Array.from({length: N}, () => ({
+    x: (Math.random() - .5) * 260,
+    y: (Math.random() - .5) * 200,
+    z: (Math.random() - .5) * 160,
+    vx: (Math.random() - .5) * .4,
+    vy: (Math.random() - .5) * .4,
+    vz: (Math.random() - .5) * .3,
+    r: 2 + Math.random() * 2.5,
+    phase: Math.random() * Math.PI * 2,
+  }));
+
+  let t = 0;
+
+  function project(x, y, z) {
+    const s = FOV / (FOV + z + 100);
+    const W = cv.width, H = cv.height;
+    return { sx: x * s + W / 2, sy: y * s + H / 2, s };
+  }
+
+  function draw() {
+    requestAnimationFrame(draw);
+    t += .014;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    // rotate scene slowly
+    const cos = Math.cos(t * .18), sin = Math.sin(t * .18);
+    nodes.forEach(n => {
+      n.x += n.vx; n.y += n.vy; n.z += n.vz;
+      if (Math.abs(n.x) > 130) n.vx *= -1;
+      if (Math.abs(n.y) > 100) n.vy *= -1;
+      if (Math.abs(n.z) > 80)  n.vz *= -1;
+    });
+
+    // rotate all nodes around Y axis for 3D spin effect
+    const rotated = nodes.map(n => {
+      const rx = n.x * cos - n.z * sin;
+      const rz = n.x * sin + n.z * cos;
+      return { ...n, rx, ry: n.y, rz };
+    });
+
+    const activeIdx = Math.floor(t * .7) % N;
+
+    // connections
+    rotated.forEach((a, i) => {
+      const pa = project(a.rx, a.ry, a.rz);
+      rotated.slice(i + 1).forEach((b, k) => {
+        const dx = a.rx - b.rx, dy = a.ry - b.ry, dz = a.rz - b.rz;
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        if (dist < 110) {
+          const pb = project(b.rx, b.ry, b.rz);
+          const isAct = i === activeIdx || i+k+1 === activeIdx;
+          const alpha = (1 - dist/110) * (isAct ? .55 : .18) * pa.s;
+          ctx.beginPath();
+          ctx.moveTo(pa.sx, pa.sy);
+          ctx.lineTo(pb.sx, pb.sy);
+          ctx.strokeStyle = isAct ? `rgba(0,210,255,${alpha})` : `rgba(0,100,200,${alpha})`;
+          ctx.lineWidth = isAct ? 1.2 : .7;
+          ctx.stroke();
+        }
+      });
+    });
+
+    // nodes
+    rotated.forEach((n, i) => {
+      const p = project(n.rx, n.ry, n.rz);
+      const pulse = Math.sin(t * 2 + n.phase) * .5 + .5;
+      const isAct = i === activeIdx;
+      const r = (n.r + (isAct ? 2 : 0)) * p.s;
+
+      // glow
+      const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r * (isAct ? 7 : 4));
+      g.addColorStop(0, isAct ? 'rgba(0,210,255,.55)' : `rgba(0,130,220,${.2 * pulse})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, r * (isAct ? 7 : 4), 0, Math.PI*2);
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // core
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, r, 0, Math.PI*2);
+      ctx.fillStyle = isAct ? '#00d2ff' : `rgba(0,150,230,${.5 + pulse * .5})`;
+      ctx.fill();
+    });
+
+    // signal pulse travelling along an edge
+    const src = rotated[activeIdx];
+    const dst = rotated[(activeIdx + 9) % N];
+    const prog = (t * .7) % 1;
+    const px = src.rx + (dst.rx - src.rx) * prog;
+    const py = src.ry + (dst.ry - src.ry) * prog;
+    const pz = src.rz + (dst.rz - src.rz) * prog;
+    const pp = project(px, py, pz);
+
+    const sg = ctx.createRadialGradient(pp.sx, pp.sy, 0, pp.sx, pp.sy, 12);
+    sg.addColorStop(0, 'rgba(0,210,255,.7)');
+    sg.addColorStop(1, 'rgba(0,210,255,0)');
+    ctx.beginPath();
+    ctx.arc(pp.sx, pp.sy, 12, 0, Math.PI*2);
+    ctx.fillStyle = sg;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(pp.sx, pp.sy, 3 * pp.s, 0, Math.PI*2);
+    ctx.fillStyle = '#00d2ff';
+    ctx.fill();
+  }
+
+  draw();
+})();
+</script>
+
+<!-- ─────────────────────────────────────────────
+     3D CARD TILT
+───────────────────────────────────────────── -->
+<script>
+(function () {
+  const card = document.getElementById('inputCard');
+  if (!card) return;
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  - .5;
+    const y = (e.clientY - r.top)  / r.height - .5;
+    card.style.transform   = `perspective(900px) rotateY(${x*6}deg) rotateX(${-y*5}deg)`;
+    card.style.transition  = 'transform .08s linear';
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform  = 'perspective(900px) rotateY(0deg) rotateX(0deg)';
+    card.style.transition = 'transform .55s cubic-bezier(.16,1,.3,1)';
+  });
+})();
+</script>
+
+<!-- ─────────────────────────────────────────────
+     TYPEWRITER PLACEHOLDER
+───────────────────────────────────────────── -->
+<script>
+(function () {
+  const ta = document.getElementById('goal');
+  if (!ta) return;
+  const ex = [
+    "Research the top 5 AI frameworks in 2024 and save a comparison report",
+    "Find the latest news on quantum computing and write a summary to output/qc.txt",
+    "Search for Python async best practices and create a guide file",
+    "Summarize the most cited ML papers from 2024 and create a calendar reminder",
+    "Find and compare the three fastest JavaScript runtimes in 2024",
+  ];
+  let i = 0, c = 0, del = false;
+
+  function tick() {
+    if (document.activeElement === ta || ta.value.length > 0) {
+      setTimeout(tick, 200); return;
+    }
+    const cur = ex[i];
+    if (!del) {
+      ta.placeholder = cur.slice(0, c++);
+      if (c > cur.length) { del = true; setTimeout(tick, 2400); return; }
+    } else {
+      ta.placeholder = cur.slice(0, c--);
+      if (c < 0) { del = false; i = (i + 1) % ex.length; c = 0; setTimeout(tick, 350); return; }
+    }
+    setTimeout(tick, del ? 16 : 36);
+  }
+  setTimeout(tick, 900);
+})();
+</script>
+
+<!-- ─────────────────────────────────────────────
+     AGENT LOGIC
+───────────────────────────────────────────── -->
+<script>
+  let es = null, timerID = null;
+  let iterC = 0, toolC = 0, t0 = null;
 
   function runAgent() {
     const goal = document.getElementById('goal').value.trim();
     if (!goal) { document.getElementById('goal').focus(); return; }
-
     if (es) { es.close(); es = null; }
 
-    // Reset UI
-    setStatus('running', 'Running…');
-    document.getElementById('runBtn').disabled = true;
-    document.getElementById('btnText').textContent = 'Running…';
+    // Reset
+    iterC = 0; toolC = 0; t0 = Date.now();
+    tick();
+
+    setStatus('running', 'Running');
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('btnText').textContent = 'Running';
     document.getElementById('spinner').classList.remove('hidden');
+    document.getElementById('runIcon').classList.add('hidden');
     document.getElementById('term').innerHTML = '';
-    document.getElementById('resultsCard').classList.add('hidden');
+    document.getElementById('resultsWrap').classList.add('hidden');
     document.getElementById('resultBody').textContent = '';
     document.getElementById('filesList').innerHTML = '';
-    document.getElementById('filesSection').classList.add('hidden');
+    document.getElementById('filesWrap').classList.add('hidden');
+    document.getElementById('liveDot').classList.add('on');
+    document.getElementById('liveLabel').textContent = 'Live';
 
     const fresh = document.getElementById('fresh').checked;
     es = new EventSource(`/run?goal=${encodeURIComponent(goal)}&fresh=${fresh}`);
 
     es.onmessage = e => {
-      const msg = JSON.parse(e.data);
-      if      (msg.type === 'log')   addLog(msg.level, msg.message);
-      else if (msg.type === 'done')  onDone(msg);
-      else if (msg.type === 'error') onError(msg.message);
+      const m = JSON.parse(e.data);
+      if      (m.type === 'log')   addLog(m.level, m.message);
+      else if (m.type === 'done')  onDone(m);
+      else if (m.type === 'error') onError(m.message);
     };
 
-    es.onerror = () => {
-      onError('Connection lost. Is the server running?');
-      es.close();
-    };
+    es.onerror = () => { onError('Connection lost. Is the server running?'); es.close(); };
+  }
+
+  function tick() {
+    clearInterval(timerID);
+    timerID = setInterval(() => {
+      document.getElementById('cTime').textContent = Math.floor((Date.now() - t0) / 1000) + 's';
+    }, 1000);
+  }
+
+  function classify(msg) {
+    const m = msg.trim();
+    if (/^Thought:/i.test(m))      return 'think';
+    if (/^Action:/i.test(m))       return { type: 'act',  tool: true };
+    if (/^Observation:/i.test(m))  return 'obs';
+    if (/^Iteration \d+/i.test(m)) return { type: 'iter', iter: true };
+    return null;
   }
 
   function addLog(level, text) {
     const term = document.getElementById('term');
+    const cls  = classify(text);
+    let type   = typeof cls === 'object' ? cls.type : cls;
+
+    if (typeof cls === 'object' && cls.tool)  { toolC++; document.getElementById('cTools').textContent = toolC; }
+    if (typeof cls === 'object' && cls.iter)  { iterC++; document.getElementById('cIter').textContent = iterC; }
+    if (level === 'WARNING') type = 'warn';
+    if (level === 'ERROR')   type = 'err';
+    if (!type) type = 'info';
+
+    const tagMap  = { think:'THINK', act:'ACT', obs:'OBS', iter:'ITER', warn:'WARN', err:'ERR', info:'INFO' };
+    const tagCls  = { think:'tag-think', act:'tag-act', obs:'tag-obs', iter:'tag-iter', warn:'tag-warn', err:'tag-err', info:'tag-info' };
+    const msgCls  = { think:'lm-think', act:'lm-act', obs:'lm-obs', iter:'lm-iter', warn:'lm-warn', err:'lm-err' };
+
     const line = document.createElement('div');
-    line.className = `log ${level}`;
-    line.textContent = text;
+    line.className = 'll';
+
+    const now = new Date();
+    line.innerHTML = `
+      <span class="ll-ts">${now.toTimeString().slice(0,8)}</span>
+      <span class="tag ${tagCls[type]}">${tagMap[type]}</span>
+      <span class="lm${msgCls[type] ? ' ' + msgCls[type] : ''}">${esc(text)}</span>`;
+
     term.appendChild(line);
     term.scrollTop = term.scrollHeight;
   }
 
   function onDone(msg) {
     es.close(); es = null;
+    clearInterval(timerID);
     setStatus('done', 'Done');
     resetBtn();
+    document.getElementById('liveDot').classList.remove('on');
+    document.getElementById('liveLabel').textContent = 'Complete';
 
-    // Show results
-    document.getElementById('resultsCard').classList.remove('hidden');
+    document.getElementById('resultsWrap').classList.remove('hidden');
     document.getElementById('resultBody').textContent = msg.response;
 
-    // Show files
     if (msg.files && msg.files.length > 0) {
-      const section = document.getElementById('filesSection');
-      const list    = document.getElementById('filesList');
-      section.classList.remove('hidden');
+      document.getElementById('filesWrap').classList.remove('hidden');
+      const list = document.getElementById('filesList');
       list.innerHTML = '';
       msg.files.forEach(f => {
-        list.insertAdjacentHTML('beforeend', `
-          <div class="file-row">
-            <div class="file-info">
-              <span class="file-icon">📄</span>
-              <div>
-                <div class="file-name">${esc(f.name)}</div>
-                <div class="file-size">${esc(f.size)}</div>
-              </div>
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.innerHTML = `
+          <div class="file-info">
+            <div class="file-icon">
+              <svg viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
-            <button class="btn-dl" onclick="dl('${esc(f.name)}')">Download</button>
-          </div>`);
+            <div>
+              <div class="fname">${esc(f.name)}</div>
+              <div class="fsize">${esc(f.size)}</div>
+            </div>
+          </div>
+          <button class="btn-dl" onclick="dl('${esc(f.name)}')">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download
+          </button>`;
+        list.appendChild(row);
       });
     }
+
+    setTimeout(() => document.getElementById('resultsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
   }
 
   function onError(msg) {
     if (es) { es.close(); es = null; }
+    clearInterval(timerID);
     setStatus('error', 'Error');
     resetBtn();
-    addLog('ERROR', '✖ ' + msg);
+    document.getElementById('liveDot').classList.remove('on');
+    document.getElementById('liveLabel').textContent = 'Failed';
+    addLog('ERROR', msg);
   }
 
   function resetBtn() {
     document.getElementById('runBtn').disabled = false;
     document.getElementById('btnText').textContent = 'Run Agent';
     document.getElementById('spinner').classList.add('hidden');
+    document.getElementById('runIcon').classList.remove('hidden');
   }
 
   function setStatus(state, text) {
-    document.getElementById('dot').className = `dot ${state}`;
+    document.getElementById('statusPill').className = `status-pill ${state}`;
     document.getElementById('statusTxt').textContent = text;
   }
 
-  function dl(name) {
-    window.open(`/download/${encodeURIComponent(name)}`, '_blank');
-  }
+  function dl(name) { window.open(`/download/${encodeURIComponent(name)}`, '_blank'); }
 
-  // Prevent XSS in dynamic HTML
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // Enter = run, Shift+Enter = newline
   document.getElementById('goal').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAgent(); }
   });
