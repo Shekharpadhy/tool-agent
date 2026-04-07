@@ -8,3 +8,4 @@ pytest-mock
 fastapi
 uvicorn
 sse-starlette
+tavily-python

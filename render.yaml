@@ -11,6 +11,8 @@ services:
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: GROQ_API_KEY
-        sync: false          # you set this manually in the Render dashboard
+        sync: false          # set manually in the Render dashboard
+      - key: TAVILY_API_KEY
+        sync: false          # set manually in the Render dashboard — get free key at tavily.com
       - key: PYTHON_VERSION
         value: 3.11.0

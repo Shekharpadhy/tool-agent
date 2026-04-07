@@ -51,15 +51,23 @@ def test_file_write_creates_outputs_dir_if_missing(tmp_path, monkeypatch):
 
 # ── search ────────────────────────────────────────────────────────────────────
 
-MOCK_RESULTS = [
+MOCK_DDG_RESULTS = [
     {"title": "LangChain Overview", "href": "https://langchain.com", "body": "LangChain is a framework for LLM apps."},
     {"title": "CrewAI Docs",        "href": "https://crewai.com",    "body": "CrewAI enables multi-agent collaboration."},
 ]
 
+MOCK_TAVILY_RESULTS = [
+    {"title": "LangChain Overview", "url": "https://langchain.com", "content": "LangChain is a framework for LLM apps."},
+    {"title": "CrewAI Docs",        "url": "https://crewai.com",    "content": "CrewAI enables multi-agent collaboration."},
+]
 
-def test_search_returns_formatted_string():
-    with patch("src.tools.search.DDGS") as MockDDGS:
-        MockDDGS.return_value.text.return_value = MOCK_RESULTS
+
+# ── DuckDuckGo backend tests (no TAVILY_API_KEY set) ─────────────────────────
+
+def test_search_returns_formatted_string(monkeypatch):
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    with patch("ddgs.DDGS") as MockDDGS:
+        MockDDGS.return_value.text.return_value = MOCK_DDG_RESULTS
         result = search("AI agent frameworks")
 
     assert "LangChain Overview" in result
@@ -67,24 +75,56 @@ def test_search_returns_formatted_string():
     assert "CrewAI Docs" in result
 
 
-def test_search_includes_query_in_output():
-    with patch("src.tools.search.DDGS") as MockDDGS:
-        MockDDGS.return_value.text.return_value = MOCK_RESULTS
+def test_search_includes_query_in_output(monkeypatch):
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    with patch("ddgs.DDGS") as MockDDGS:
+        MockDDGS.return_value.text.return_value = MOCK_DDG_RESULTS
         result = search("my test query")
 
     assert "my test query" in result
 
 
-def test_search_returns_no_results_message_when_empty():
-    with patch("src.tools.search.DDGS") as MockDDGS:
+def test_search_returns_no_results_message_when_empty(monkeypatch):
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    with patch("ddgs.DDGS") as MockDDGS:
         MockDDGS.return_value.text.return_value = []
         result = search("obscure query")
 
     assert "No results found" in result
 
 
-def test_search_respects_max_results():
-    with patch("src.tools.search.DDGS") as MockDDGS:
-        MockDDGS.return_value.text.return_value = MOCK_RESULTS
+def test_search_respects_max_results(monkeypatch):
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    with patch("ddgs.DDGS") as MockDDGS:
+        MockDDGS.return_value.text.return_value = MOCK_DDG_RESULTS
         search("query", max_results=3)
         MockDDGS.return_value.text.assert_called_once_with("query", max_results=3)
+
+
+# ── Tavily backend tests (TAVILY_API_KEY set) ─────────────────────────────────
+
+def test_search_uses_tavily_when_api_key_set(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    with patch("src.tools.search._tavily_search", return_value="tavily result") as mock_tavily:
+        result = search("AI agent frameworks")
+    mock_tavily.assert_called_once_with("AI agent frameworks", 5)
+    assert result == "tavily result"
+
+
+def test_tavily_returns_formatted_string(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    with patch("tavily.TavilyClient") as MockClient:
+        MockClient.return_value.search.return_value = {"results": MOCK_TAVILY_RESULTS}
+        result = search("AI agent frameworks")
+
+    assert "LangChain Overview" in result
+    assert "https://langchain.com" in result
+
+
+def test_tavily_no_results(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    with patch("tavily.TavilyClient") as MockClient:
+        MockClient.return_value.search.return_value = {"results": []}
+        result = search("obscure query")
+
+    assert "No results found" in result
